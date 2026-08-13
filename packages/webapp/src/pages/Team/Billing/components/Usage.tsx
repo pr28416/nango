@@ -11,18 +11,13 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useApiGetBillingUsage, useApiGetOverdueInvoices, useCurrentPlan } from '@/hooks/usePlan';
 import { useStore } from '@/store';
 import { track } from '@/utils/analytics';
+import { isLegacyPlan } from '../legacyPlans';
 import { useSelectedMonth } from '../useSelectedMonth';
 import { FreeUsage } from './FreeUsage';
 import { MonthSelector } from './MonthSelector';
 import { PaymentMethodDialog } from './PaymentMethodDialog';
 import { USAGE_METRIC_LABELS, USAGE_METRICS } from './usageMetrics';
 import { UsageTable } from './UsageTable';
-
-import type { DBPlan } from '@nangohq/types';
-
-// Plans on the current usage model. Any plan not listed here is treated as a legacy plan (different usage metrics).
-// Typed against `DBPlan['name']` so a renamed or removed plan fails to compile instead of silently drifting.
-const CURRENT_PLAN_NAMES: readonly DBPlan['name'][] = ['free', 'free-uncapped', 'startup-deal', 'enterprise-cloud-hosted', 'starter-v2', 'growth-v2'];
 
 export const Usage: React.FC = () => {
     const env = useStore((state) => state.env);
@@ -94,7 +89,7 @@ export const Usage: React.FC = () => {
         return <FreeUsage />;
     }
 
-    const isLegacyPlan = plan && !CURRENT_PLAN_NAMES.includes(plan.name);
+    const isLegacy = isLegacyPlan(plan);
     // Paid/legacy plans are uncapped (only `freePlan` sets real limits in `plans/definitions.ts`),
     // so every row shows just its usage total — `UsageRow` already renders that gracefully for a
     // `null` limit (no bar, "—" instead of a percent).
@@ -111,7 +106,7 @@ export const Usage: React.FC = () => {
         <div className="w-full flex flex-col gap-4">
             {overdueBanner}
 
-            {isLegacyPlan && (
+            {isLegacy && (
                 <Alert variant="info">
                     <Info />
                     <AlertTitle>You&apos;re on a legacy plan</AlertTitle>
