@@ -2,14 +2,11 @@ import { parseAsArrayOf, parseAsString, useQueryState } from 'nuqs';
 import { useMemo } from 'react';
 
 import { CriticalErrorAlert } from '@/components/patterns/CriticalErrorAlert';
-import { usePlanOverrideStore } from '@/features/planOverride';
 import { useApiGetBillingUsage, useApiGetUsage } from '@/hooks/usePlan';
 import { useStore } from '@/store';
-import { getAggregateUsageState } from '@/utils/usage';
 import { useSelectedMonth } from '../useSelectedMonth';
 import { toggleExpandedMetric } from './expandedMetrics';
 import { MonthSelector } from './MonthSelector';
-import { UsageLimitBanner } from './UsageLimitBanner';
 import { USAGE_METRIC_LABELS, USAGE_METRICS } from './usageMetrics';
 import { UsageTable } from './UsageTable';
 
@@ -24,7 +21,6 @@ import type { UsageMetric } from '@nangohq/types';
 export const FreeUsage: React.FC = () => {
     const env = useStore((state) => state.env);
     const { selectedMonth } = useSelectedMonth();
-    const usageLimitOverride = usePlanOverrideStore((s) => s.usageLimitOverride);
 
     const timeframe = useMemo(() => {
         const start = new Date(Date.UTC(selectedMonth.getUTCFullYear(), selectedMonth.getUTCMonth(), 1));
@@ -69,8 +65,6 @@ export const FreeUsage: React.FC = () => {
 
     return (
         <div className="w-full flex flex-col gap-4">
-            {/* Dev-tool override (planOverride.ts), same as the sidebar alert reads. */}
-            <UsageLimitBanner state={usageLimitOverride ?? getAggregateUsageState(caps?.data ?? {})} />
             <div className="flex justify-between items-center">
                 <span className="text-text-strong text-body-medium-medium">Usage</span>
                 <MonthSelector />
