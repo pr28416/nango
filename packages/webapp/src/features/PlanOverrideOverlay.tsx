@@ -5,10 +5,11 @@ import { IconButton } from '@nangohq/design-system';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { useApiGetPlans, useCurrentPlan } from '@/hooks/usePlan';
+import { showsSpendHeadline } from '@/pages/Team/Billing/planVisibility';
 import { useStore } from '@/store';
 import { usePlanOverrideStore } from './planOverride';
 
-import type { UsageLimitOverride } from './planOverride';
+import type { SpendOverride, UsageLimitOverride } from './planOverride';
 import type { PlanDefinition } from '@nangohq/types';
 
 const REAL_PLAN_VALUE = '__real__';
@@ -16,6 +17,10 @@ const NO_SCHEDULED_CHANGE_VALUE = '__none__';
 const REAL_OVERDUE_VALUE = '__real_state__';
 const OVERDUE_VALUE = '__overdue__';
 const REAL_USAGE_VALUE = '__real_usage__';
+const REAL_SPEND_VALUE = '__real_spend__';
+const UNAVAILABLE_SPEND_VALUE = 'unavailable';
+// A base-only Starter bill, a mid-period Growth bill, and zero (what the startup deal really bills).
+const SPEND_PRESETS_IN_CENTS = [0, 5000, 128430];
 // Only these 3 self-serve tiers have a real downgrade/cancellation path — legacy and Enterprise
 // plans never schedule a change in practice, so they're not offered as scheduled-change targets.
 const MAIN_PLAN_ORDER: PlanDefinition['code'][] = ['free', 'starter-v2', 'growth-v2'];
@@ -36,6 +41,10 @@ export const PlanOverrideContent: React.FC<PlanOverrideContentProps> = ({ onBack
     const setOverdueOverride = usePlanOverrideStore((s) => s.setOverdueOverride);
     const usageLimitOverride = usePlanOverrideStore((s) => s.usageLimitOverride);
     const setUsageLimitOverride = usePlanOverrideStore((s) => s.setUsageLimitOverride);
+    const spendHeadlineEnabled = usePlanOverrideStore((s) => s.spendHeadlineEnabled);
+    const setSpendHeadlineEnabled = usePlanOverrideStore((s) => s.setSpendHeadlineEnabled);
+    const spendOverride = usePlanOverrideStore((s) => s.spendOverride);
+    const setSpendOverride = usePlanOverrideStore((s) => s.setSpendOverride);
 
     // Each simulator is only offered where the real thing can happen: plan caps are enforced on Free
     // only, and only paid plans are invoiced. `useCurrentPlan` already reflects the override above,
@@ -44,6 +53,7 @@ export const PlanOverrideContent: React.FC<PlanOverrideContentProps> = ({ onBack
     const planName = environmentData?.plan?.name;
     const isFreePlan = planName === 'free';
     const isPayingPlan = planName !== undefined && planName !== 'free' && planName !== 'free-uncapped';
+    const leadsWithSpend = showsSpendHeadline(environmentData?.plan);
 
     // Several plans share a title — `starter` and `starter-legacy` are both "Starter (legacy)", as are
     // `growth` and `growth-legacy` — which makes them indistinguishable in the list. Append the code to
@@ -138,6 +148,54 @@ export const PlanOverrideContent: React.FC<PlanOverrideContentProps> = ({ onBack
                                 <SelectItem value={OVERDUE_VALUE}>Overdue</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+                )}
+
+                {leadsWithSpend && (
+                    <div className="flex flex-col gap-3 border-t border-border-muted pt-4">
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-sm text-text-muted">Current period spend headline (unverified — hidden from customers)</span>
+                            <Select value={spendHeadlineEnabled ? 'on' : 'off'} onValueChange={(value) => setSpendHeadlineEnabled(value === 'on')}>
+                                <SelectTrigger className="w-full text-sm px-2.5 gap-2">
+                                    <SelectValue placeholder="Hidden" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="off">Hidden (plan name headline)</SelectItem>
+                                    <SelectItem value="on">Shown</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {spendHeadlineEnabled && (
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-sm text-text-muted">Simulate spend (the local billing client returns none)</span>
+                                <Select
+                                    value={spendOverride === null ? REAL_SPEND_VALUE : String(spendOverride)}
+                                    onValueChange={(value) =>
+                                        setSpendOverride(
+                                            value === REAL_SPEND_VALUE
+                                                ? null
+                                                : value === UNAVAILABLE_SPEND_VALUE
+                                                  ? UNAVAILABLE_SPEND_VALUE
+                                                  : (Number(value) as SpendOverride)
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger className="w-full text-sm px-2.5 gap-2">
+                                        <SelectValue placeholder="Real spend" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={REAL_SPEND_VALUE}>Real spend (no override)</SelectItem>
+                                        {SPEND_PRESETS_IN_CENTS.map((cents) => (
+                                            <SelectItem key={cents} value={String(cents)}>
+                                                {(cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                            </SelectItem>
+                                        ))}
+                                        <SelectItem value={UNAVAILABLE_SPEND_VALUE}>Unavailable (falls back to plan name)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </div>
                 )}
 
